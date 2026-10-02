@@ -1,0 +1,32 @@
+name: Card slots relay
+
+# Через 12 ч после ночной сборки запускает дневное обновление слотов в приватном
+# репозитории сборки. Ждёт environment `card-slots-delay` (wait timer 720 мин):
+# в публичном репозитории это бесплатно и раннер не занимает.
+on:
+  repository_dispatch:
+    types: [schedule-card-slots]
+  workflow_dispatch:
+
+permissions: {}
+
+# Новый сигнал заменяет ещё ждущий.
+concurrency:
+  group: card-slots-relay
+  cancel-in-progress: true
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    environment: card-slots-delay
+    timeout-minutes: 5
+    steps:
+      - name: Запустить обновление слотов
+        env:
+          GH_TOKEN: ${{ secrets.CRAWLER_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Не задан секрет CRAWLER_DISPATCH_TOKEN (Actions: write на senkuro-card-index)"
+            exit 1
+          fi
+          gh workflow run card-slots.yml --repo tranthangmu/senkuro-card-index --ref main
